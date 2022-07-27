@@ -47,14 +47,12 @@ class EffectivenessModel(pl.LightningModule):
 
         return {"loss": loss, "pred": pred, "metrics": metrics}
 
-    def test_step(self, batch, batch_idx):
+    def predict_step(self, batch, batch_idx):
         output = self.forward(batch["batch_encoding"])
+        output = torch.softmax(output, dim=1)
         return output
 
     def configure_optimizers(self):
-        """
-        initializes optimizers
-        """
         optimizer = torch.optim.AdamW(
                 self.parameters(),
                 lr=self.hparams['learning_rate'],

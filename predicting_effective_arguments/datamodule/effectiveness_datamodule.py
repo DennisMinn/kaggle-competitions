@@ -1,8 +1,10 @@
+import math
 import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 from transformers import AutoTokenizer
 import pytorch_lightning as pl
+
 
 label2id = {
     "Ineffective": 0,
@@ -19,14 +21,17 @@ id2label = {
 
 class EffectivenessDataset(Dataset):
     def __init__(self, df, tokenizer, max_len, train=True):
+        super().__init__()
+        self.df = df
         self.len = df.shape[0]
         self.train = train
 
-        self.tokenizer = tokenizer
         self.max_len = max_len
 
         self.discourse_text = df["discourse_text"]
         self.discourse_type = df["discourse_type"]
+
+        self.tokenizer = tokenizer
 
         if self.train:
             self.label = df["discourse_effectiveness"]
@@ -39,6 +44,7 @@ class EffectivenessDataset(Dataset):
         discourse_type = self.discourse_type[index]
 
         text = discourse_type + self.tokenizer.sep_token + discourse_text
+
         batch_encoding = self.tokenizer.encode_plus(
             text=text,
             padding="max_length",
@@ -46,21 +52,25 @@ class EffectivenessDataset(Dataset):
             truncation=True
         )
 
-        inputs = {}
-        inputs["batch_encoding"] = {k: torch.tensor(v, dtype=torch.long)
-                                    for k, v in batch_encoding.items()}
+        for k, v in batch_encoding.items():
+            batch_encoding[k] = torch.tensor(v, dtype=torch.long)
+
+        inputs = {"batch_encoding": batch_encoding}
+
         if self.train:
             label = label2id[self.label[index]]
-            inputs["label"] = torch.tensor([label], dtype=torch.long)
+            inputs["label"] = torch.tensor(label, dtype=torch.long)
 
         return inputs
 
 
 class EffectivenessDataModule(pl.LightningDataModule):
     def __init__(self, config):
+        super().__init__()
         self.config = config
         self.df = pd.read_csv(self.config["input_dir"])
-        self.tokenizer = AutoTokenizer.from_pretrained(self.config["model_name"])
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.config["model_name"])
 
     def setup(self, stage=None):
         if stage in (None, "fit"):
@@ -76,12 +86,16 @@ class EffectivenessDataModule(pl.LightningDataModule):
                 [train_len, val_len]
             )
 
-        if stage in (None, "test"):
+            self.config["num_training_steps"] =\
+                math.ceil(train_len/self.config["batch_size"]) *\
+                self.config["num_epochs"]
+
+        if stage in (None, "predict"):
             dataset = EffectivenessDataset(self.df, self.tokenizer,
                                            max_len=self.config["max_len"],
                                            train=False)
 
-            self.test_dataset = dataset
+            self.predict_dataset = dataset
 
     def train_dataloader(self):
         return DataLoader(
@@ -99,9 +113,9 @@ class EffectivenessDataModule(pl.LightningDataModule):
             shuffle=False,
             pin_memory=True)
 
-    def test_dataloader(self):
+    def predict_dataloader(self):
         return DataLoader(
-            self.test_dataset,
+            self.predict_dataset,
             batch_size=self.config["batch_size"],
             num_workers=self.config["num_workers"],
             shuffle=False,

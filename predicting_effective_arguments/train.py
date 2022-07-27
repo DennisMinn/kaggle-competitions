@@ -1,3 +1,6 @@
+import os
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor
 
