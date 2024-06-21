@@ -4,10 +4,10 @@ import spacy
 import polars as pl
 import pandas as pd
 
-# with open('data/vocabulary.txt') as infile:
-#     vocabulary = set(word.strip().lower() for word in infile)
+with open('data/vocabulary.txt') as infile:
+    vocabulary = set(word.strip().lower() for word in infile)
 
-# nlp = spacy.load('en_core_web_sm')
+nlp = spacy.load('en_core_web_sm')
 
 def count_spelling_errors(text, nlp, vocabulary):
     doc = nlp(text)
