@@ -4,12 +4,12 @@ import spacy
 import polars as pl
 import pandas as pd
 
-with open('data/vocabulary.txt') as infile:
-    vocabulary = set(word.strip().lower() for word in infile)
+# with open('data/vocabulary.txt') as infile:
+#     vocabulary = set(word.strip().lower() for word in infile)
 
-nlp = spacy.load('en_core_web_sm')
+# nlp = spacy.load('en_core_web_sm')
 
-def count_spelling_errors(text):
+def count_spelling_errors(text, nlp, vocabulary):
     doc = nlp(text)
     lemmatized_tokens = set([token.lemma_.lower() for token in doc])
     spelling_errors = sum(1 for token in lemmatized_tokens if token not in vocabulary)
@@ -193,21 +193,3 @@ def create_bag_of_words_features(df, vectorizer, stage):
     bow_df.columns = [f'tfidf_{i}' for i in range(bow_df.shape[1])]
     bow_df['essay_id'] = df['essay_id']
     return bow_df
-
-def create_features(df, tfidf_vectorizer=None, count_vectorizer=None):
-    paragraph_feature_df = create_paragraph_features(df)
-    word_feature_df = create_word_features(df)
-
-    if tfidf_vectorizer:
-        tfidf_df = create_tfidf_features(df, tfidf_vectorizer)
-    if count_vectorizer:
-        bow_df = create_bag_of_words_features(df, count_vectorizer)
-
-    feature_df = df[('essay_id')].to_pandas().to_frame()
-    feature_df = feature_df.merge(word_feature_df, on='essay_id', how='left')
-    feature_df = feature_df.merge(paragraph_feature_df, on='essay_id', how='left')
-    if tfidf_vectorizer:
-        feature_df = feature_df.merge(tfidf_df, on='essay_id', how='left')
-    if count_vectorizer:
-        feature_df = feature_df.merge(bow_df, on='essay_id', how='left')
-    return feature_df
