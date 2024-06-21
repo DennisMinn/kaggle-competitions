@@ -9,7 +9,7 @@ with open('data/vocabulary.txt') as infile:
 
 nlp = spacy.load('en_core_web_sm')
 
-def count_spelling_errors(text, nlp, vocabulary):
+def count_spelling_errors(text):
     doc = nlp(text)
     lemmatized_tokens = set([token.lemma_.lower() for token in doc])
     spelling_errors = sum(1 for token in lemmatized_tokens if token not in vocabulary)
