@@ -214,10 +214,10 @@ def create_llm_features(df, model_id):
         tokenizer=tokenizer
     )
 
+    llm_df = pd.DataFrame({'essay_id': df['essay_id']})
+
     predictions = trainer.predict(dataset).predictions
-    llm_df = pd.DataFrame({
-        'essay_id': df['essay_id'],
-        f'{model_id}_score': predictions
-    })
+    for column_index in range(predictions.shape[1]):
+        llm_df[f'{model_id}_label_{column_index}'] = predictions[:, column_index]
 
     return llm_df
