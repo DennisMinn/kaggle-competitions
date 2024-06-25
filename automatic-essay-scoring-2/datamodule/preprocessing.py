@@ -169,12 +169,9 @@ def create_word_features(df):
     return df
 
 
-def create_tfidf_features(df, vectorizer, stage):
-    essays = df['full_text'].to_list()
-    if stage == 'train':
-        tfidf_sparse_matrix = vectorizer.fit_transform(essays)
-    else:
-        tfidf_sparse_matrix = vectorizer.transform(essays)
+def create_tfidf_features(df, vectorizer):
+    essays = df['full_text'].map_elements(sanitize_text)
+    tfidf_sparse_matrix = vectorizer.transform(essays)
 
     tfidf_dense_matrix = tfidf_sparse_matrix.toarray()
     tfidf_df = pd.DataFrame(tfidf_dense_matrix)
@@ -183,19 +180,18 @@ def create_tfidf_features(df, vectorizer, stage):
     tfidf_df['essay_id'] = df['essay_id']
     return tfidf_df
 
-def create_bag_of_words_features(df, vectorizer, stage):
-    essays = df['full_text'].to_list()
-    if stage == 'train':
-        bow_sparse_matrix = vectorizer.fit_transform(essays)
-    else:
-        bow_sparse_matrix = vectorizer.transform(essays)
+
+def create_bag_of_words_features(df, vectorizer):
+    essays = df['full_text'].map_elements(sanitize_text)
+    bow_sparse_matrix = vectorizer.transform(essays)
 
     bow_dense_matrix = bow_sparse_matrix.toarray()
     bow_df = pd.DataFrame(bow_dense_matrix)
 
-    bow_df.columns = [f'tfidf_{i}' for i in range(bow_df.shape[1])]
+    bow_df.columns = [f'bow_{i}' for i in range(bow_df.shape[1])]
     bow_df['essay_id'] = df['essay_id']
     return bow_df
+
 
 def create_llm_features(df, model_id):
     tokenizer = AutoTokenizer.from_pretrained(model_id)
