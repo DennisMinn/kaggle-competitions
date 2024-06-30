@@ -1,3 +1,4 @@
+import os
 import re
 import string
 import spacy
@@ -5,6 +6,7 @@ import polars as pl
 import pandas as pd
 import pkg_resources
 from datasets import Dataset
+from scipy.special import softmax
 from transformers import (
     Trainer,
     AutoTokenizer,
@@ -193,9 +195,12 @@ def create_bag_of_words_features(df, vectorizer):
     return bow_df
 
 
-def create_llm_features(df, model_id):
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = AutoModelForSequenceClassification.from_pretrained(model_id)
+def create_llm_features(df, model_path, task):
+    assert task in ['classification', 'regression']
+
+    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    model = AutoModelForSequenceClassification.from_pretrained(model_path, output_hidden_states=True)
+    model_id = os.path.split(model_path)[-1]
 
     df = df.to_pandas()
     dataset = Dataset.from_pandas(df)
@@ -210,11 +215,25 @@ def create_llm_features(df, model_id):
         tokenizer=tokenizer
     )
 
-    predictions = trainer.predict(dataset).predictions
+    predictions, hidden_states = trainer.predict(dataset).predictions
 
-    llm_df = pd.DataFrame({
+    # Prediction Features
+    if task == 'classification':
+        predictions = softmax(predictions, axis=1)
+
+    prediction_df = pd.DataFrame({
         f'{model_id}_label_{column_index}': predictions[:, column_index]
         for column_index in range(predictions.shape[1])
     })
 
+    # Hidden State Features
+    last_hidden_state = hidden_states[-1]
+    cls_last_hidden_state = last_hidden_state[:, 0, :]
+
+    hidden_state_df = pd.DataFrame({
+        f'{model_id}_last_hidden_state_{embedding_index}': cls_last_hidden_state[:, embedding_index]
+        for embedding_index in range(cls_last_hidden_state.shape[1])
+    })
+
+    llm_df = pd.concat([prediction_df, hidden_state_df], axis=1)
     return llm_df
